@@ -1,0 +1,120 @@
+\documentclass[12pt]{article}
+
+% --- Packages ---
+\usepackage[T1]{fontenc}        % Better font encoding
+\usepackage{mathpazo}           % Palatino font for text and math
+\usepackage{amsmath, amssymb}   % Math packages
+\usepackage{graphicx}           % For including graphics
+\usepackage{setspace}           % For line spacing
+\usepackage{geometry}           % For page margins
+\usepackage{verbatim}           % For displaying code or console output
+\usepackage{parskip}            % Better paragraph spacing
+
+% --- Formatting ---
+\geometry{margin=1in}
+\setstretch{1.15}
+
+\begin{document}
+
+\title{PhD Industrial Organization: Homework 2}
+\author{Franco Diaz Laura}
+\date{\today}
+\maketitle
+
+\section{Question 1}
+
+\textbf{How to run code:}\\
+To run the code, navigate to the \texttt{src} directory and execute:
+\begin{verbatim}
+julia Rust_replication.jl
+julia run_results.jl
+\end{verbatim}
+
+
+The following is the output (note that it takes approximately \textbf{2248 seconds} to run):
+
+\begin{quote}\ttfamily
+=== Rust (1987) — NFXP Step 2 (fast) ===
+
+$\beta = 0.9999$, $\theta_{30} = 0.3919$, $\theta_{31} = 0.5953$ ($p_2 = 0.0128$)\\
+Bins: 90, $\Delta = 5000$ miles\\
+Estimates: RC = 10.0428, $\theta_{11} = 0.456457$\\
+Negative log-likelihood (nll): 163.584577
+\end{quote}
+
+So my estimates for RC are close but $\theta_{11}$ is not that close.
+
+\section{Question 2}
+\paragraph{(b) CCP (Hotz--Miller) two--step estimator for the Rust (1987) bus problem.}
+Let $x\in\mathcal{X}=\{1,\ldots,90\}$ index mileage bins (5k miles), and $i\in\{0,1\}$ index choices
+($i=0$ keep, $i=1$ replace). The discount factor $\beta$ and transition matrices
+$P(y\mid x,i)$ are taken as given from Step~1. Idiosyncratic shocks are i.i.d.\ type~I extreme value.
+We seek $\theta=(RC,\theta_{11})$ in the linear flow cost $c(x;\theta_{11})=0.001\,\theta_{11}\,x_{\text{miles}}$ so that
+\[
+u(x,i;\theta)=
+\begin{cases}
+-RC - c(0;\theta_{11})=-RC, & i=1 \ (\text{replace}),\\[2pt]
+-c(x;\theta_{11}), & i=0 \ (\text{keep}).
+\end{cases}
+\]
+
+\noindent\textbf{Step 1 (nonparametric CCPs).}
+For each state $x$, compute smoothed empirical conditional choice probabilities (CCPs)
+\[
+\widehat p(i\mid x)=\frac{n_{xi}+\alpha}{n_x+J\alpha},\qquad J=2,\ \alpha>0,
+\]
+where $n_x$ is the number of observations with state $x$ and $n_{xi}$ the number of times choice $i$ is taken at $x$
+(Laplace smoothing avoids $\log 0$ when actions are rare).
+
+\noindent\textbf{Step 2 (inclusive value from CCPs).}
+With logit errors and the baseline $i_0=0$ (keep) normalized, the ex--ante value satisfies
+$EV(x)=\gamma+\log\sum_j \exp v_j(x)$ and, using $\sum_j \exp v_j(x)=1/\widehat p(i_0\mid x)$,
+\[
+\widetilde{EV}(x)\equiv -\log\widehat p(i_0\mid x),
+\]
+which equals $EV(x)$ up to the constant $\gamma$; the constant cancels in differences below.
+
+\noindent\textbf{Step 3 (Hotz--Miller inversion).}
+For each $x$ and each $i\neq i_0$ form
+\begin{align*}
+\Delta_{\text{HM}}(x,i)
+&= \underbrace{\log\widehat p(i\mid x)-\log\widehat p(i_0\mid x)}_{\text{current-period log-odds}}
+\;-\;
+\beta\Big(
+\underbrace{\sum_{y}\widetilde{EV}(y)\,P(y\mid x,i)}_{\text{next-period ex-ante value under }i}
+-
+\underbrace{\sum_{y}\widetilde{EV}(y)\,P(y\mid x,i_0)}_{\text{under baseline }i_0}
+\Big).
+\end{align*}
+For the Rust utility, the structural difference is
+\[
+u(x,i;\theta)-u(x,i_0;\theta)=
+\begin{cases}
+-RC + 0.001\,\theta_{11}\,x_{\text{miles}}, & i=1\ \text{vs }i_0=0.
+\end{cases}
+\]
+
+\noindent\textbf{Step 4 (minimum distance / NLS estimation).}
+Choose $\theta$ to minimize
+\[
+Q(\theta)=\sum_{x\in\mathcal{X}}\sum_{i\neq i_0} w_{xi}\,
+\big[\Delta_{\text{HM}}(x,i) - \{u(x,i;\theta)-u(x,i_0;\theta)\}\big]^2,
+\]
+with weights $w_{xi}$ (e.g.\ $w_{xi}=n_x/\sum_x n_x$). If $u$ is linear in $\theta$, this is OLS;
+otherwise solve by nonlinear least squares (or GMM).
+
+\medskip
+\noindent\textbf{(Optional) NPL refinement (Aguirregabiria--Mira).}
+Initialize $p^{(0)}(i\mid x)=\widehat p(i\mid x)$. For $k=0,1,2,\ldots$ repeat:
+\begin{enumerate}\setlength{\itemsep}{2pt}
+\item $\widetilde{EV}^{(k)}(x)=-\log p^{(k)}(i_0\mid x)$.
+\item Given $\theta^{(k)}$, form model CCPs
+\[
+p^{\text{model}}(i\mid x;\theta^{(k)}) \;\propto\; \exp\!\left(u(x,i;\theta^{(k)})+\beta\sum_y \widetilde{EV}^{(k)}(y)P(y\mid x,i)\right).
+\]
+\item Update CCPs with damping: $p^{(k+1)}:=\rho\,p^{(k)}+(1-\rho)\,p^{\text{model}}(\cdot\mid\cdot;\theta^{(k)})$.
+\item Re-estimate $\theta^{(k+1)}$ by the criterion $Q(\theta)$ using $p^{(k+1)}$.
+\item Stop when $\max_{x,i}\lvert p^{(k+1)}(i\mid x)-p^{(k)}(i\mid x)\rvert<\text{tol}$.
+\end{enumerate}
+
+\end{document}
